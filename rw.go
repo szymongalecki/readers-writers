@@ -1,5 +1,3 @@
-// Readers - writers
-
 package main
 
 import (
@@ -9,18 +7,18 @@ import (
 	"time"
 )
 
-// readers and writers count
+// readersCount >= 1, writersCount >= 1
 var readersCount int = 25
 var writersCount int = 10
 
-// Readers-writers mutex, WaitGroup
 var db sync.RWMutex
 var wg sync.WaitGroup
 
-// Data and its pointer
+// piece of data and its pointer
 var value int
 var p = &value
 
+// sleep is for the output to be nicer, it is not a vital part of the algorithm
 func sleep() {
 	time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
 }
@@ -47,11 +45,9 @@ func main() {
 		wg.Add(1)
 		go writer(i + 1)
 	}
-
 	for i := 0; i < readersCount; i++ {
 		wg.Add(1)
 		go reader(i + 1)
 	}
-
 	wg.Wait()
 }
