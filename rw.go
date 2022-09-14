@@ -2,52 +2,52 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
+	"strings"
 	"sync"
-	"time"
 )
 
-// readersCount >= 1, writersCount >= 1
-var readersCount int = 25
-var writersCount int = 10
-
-var db sync.RWMutex
-var wg sync.WaitGroup
-
-// piece of data and its pointer
-var value int
-var p = &value
-
-// sleep is for the output to be nicer, it is not a vital part of the algorithm
-func sleep() {
-	time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
-}
-
-func reader(id int) {
-	defer wg.Done()
-	sleep()
-	db.RLock()
-	fmt.Printf("Reader%d : %d\n", id, *p)
-	db.RUnlock()
-}
-
-func writer(id int) {
-	defer wg.Done()
-	sleep()
-	db.Lock()
-	*p = *p + 5
-	fmt.Printf("\t\t\tWriter%d : %d\n", id, *p)
-	db.Unlock()
-}
-
 func main() {
-	for i := 0; i < writersCount; i++ {
+	// synchronisation primitives
+	var l sync.RWMutex
+	var wg sync.WaitGroup
+	readers := make(chan int)
+	writers := make(chan int)
+
+	// monitor access
+	go func() {
+		r, w := 0, 0
+		for {
+			select {
+			case v := <-readers:
+				r += v
+			case v := <-writers:
+				w += v
+			}
+			fmt.Printf("%s%s\n", strings.Repeat("R", r), strings.Repeat("W", w))
+		}
+	}()
+
+	// launch reader and writer threads
+	for i := 0; i < 100; i++ {
+		// reader
 		wg.Add(1)
-		go writer(i + 1)
-	}
-	for i := 0; i < readersCount; i++ {
+		go func(id int, r chan int) {
+			defer wg.Done()
+			l.RLock()
+			r <- 1
+			r <- -1
+			l.RUnlock()
+		}(i, readers)
+
+		// writer
 		wg.Add(1)
-		go reader(i + 1)
+		go func(id int, w chan int) {
+			defer wg.Done()
+			l.Lock()
+			w <- 1
+			w <- -1
+			l.Unlock()
+		}(i, writers)
 	}
 	wg.Wait()
 }
